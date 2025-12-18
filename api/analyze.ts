@@ -3,7 +3,6 @@ export const config = {
 };
 
 export default async function handler(req: Request) {
-  // 1. Check Request Method
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       status: 405,
@@ -12,13 +11,12 @@ export default async function handler(req: Request) {
   }
 
   try {
-    // 2. Parse Body
     const taskData = await req.json();
 
-    // 3. Check API Key
-    const apiKey = process.env.GEMINI_API_KEY;
+    // 1. Get the Groq API Key
+    const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
-      console.error("Server Error: GEMINI_API_KEY is missing from Environment Variables.");
+      console.error("Configuration Error: GROQ_API_KEY is missing.");
       return new Response(JSON.stringify({ 
         success: false, 
         error: 'Server Configuration Error: API Key missing' 
@@ -28,7 +26,7 @@ export default async function handler(req: Request) {
       });
     }
 
-    // 4. Construct Prompt
+    // 2. Prepare the prompt (Same as before)
     const prompt = `Analyze this task completion data and provide 2-3 sentences of actionable insights. Be specific about patterns and recommendations.
 
     Last 7 Days Summary:
@@ -47,25 +45,40 @@ export default async function handler(req: Request) {
 
     Provide actionable, specific insights about productivity patterns and recommendations.`;
 
-    // 5. Call Google Gemini
-    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
+    // 3. Call Groq API (OpenAI compatible format)
+    const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
+        model: "llama3-70b-8192", // Using Llama 3 70B for high intelligence
+        messages: [
+          {
+            role: "system",
+            content: "You are a productivity expert analyzing user task data."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 150
       }),
     });
 
-    if (!geminiResponse.ok) {
-      const errorText = await geminiResponse.text();
-      console.error("Gemini API Error:", geminiResponse.status, errorText);
-      throw new Error(`Gemini API responded with ${geminiResponse.status}: ${errorText}`);
+    if (!groqResponse.ok) {
+      const errorText = await groqResponse.text();
+      console.error("Groq API Error:", groqResponse.status, errorText);
+      throw new Error(`Groq API responded with ${groqResponse.status}: ${errorText}`);
     }
 
-    const data = await geminiResponse.json();
-    const insight = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Unable to generate insight';
+    const data = await groqResponse.json();
+    
+    // Groq returns data in OpenAI format
+    const insight = data.choices?.[0]?.message?.content || 'Unable to generate insight';
 
     return new Response(JSON.stringify({
       success: true,
