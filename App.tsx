@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Plus, LayoutDashboard, Cpu, FileSpreadsheet, BarChart2, Search, Calendar, AlertCircle, AlertTriangle, Minus, ChevronDown, User, LogOut, Users, Cloud, CloudOff } from 'lucide-react';
 import { Todo, TodoGroup, TaskStatus, DailyRating, DayMetadata, Priority } from './types';
 import { getTodayDateString, formatDateLabel, isDatePast } from './utils/dateUtils';
@@ -103,13 +103,38 @@ const App: React.FC = () => {
     loadData();
   }, [currentUser, isLoaded]);
 
-  // --- Data Saving (Per User) ---
+  // --- Data Saving (Per User) with Debounce ---
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
   useEffect(() => {
     if (currentUser && isLoaded) {
-      // Debounce slightly or just save on every render (React batches updates usually)
-      storage.saveUserData(currentUser, { todos, metadata: dailyMetadata });
+      // Clear previous timeout
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      
+      // Set new debounced save (500ms after last change)
+      saveTimeoutRef.current = setTimeout(() => {
+        storage.saveUserData(currentUser, { todos, metadata: dailyMetadata });
+      }, 500);
     }
+    
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
   }, [todos, dailyMetadata, currentUser, isLoaded]);
+  
+  // Save on page unload to ensure no data loss on refresh
+  useEffect(() => {
+    const handleBeforeUnload = async (e: BeforeUnloadEvent) => {
+      if (currentUser && (todos.length > 0 || Object.keys(dailyMetadata).length > 0)) {
+        // Immediately save without debounce
+        if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+        await storage.saveUserData(currentUser, { todos, metadata: dailyMetadata });
+      }
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [currentUser, todos, dailyMetadata]);
 
 
   // --- Event Handlers ---

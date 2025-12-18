@@ -28,12 +28,8 @@ export const TodoItem: React.FC<TodoItemProps> = ({ todo, isPast, onStatusChange
     e.stopPropagation(); 
     
     if (isPast) {
-      // For past dates: toggle between COMPLETED (done) and PENDING (not done)
-      if (todo.status === 'COMPLETED') {
-        onStatusChange(todo.id, 'PENDING');
-      } else {
-        onStatusChange(todo.id, 'COMPLETED');
-      }
+      // For past dates: toggle between COMPLETED (done) and any non-completed state
+      onStatusChange(todo.id, todo.status === 'COMPLETED' ? 'PENDING' : 'COMPLETED');
     } else {
       // For today/future: cycle through PENDING -> IN_PROGRESS -> COMPLETED -> PENDING
       if (todo.status === 'PENDING') onStatusChange(todo.id, 'IN_PROGRESS');
