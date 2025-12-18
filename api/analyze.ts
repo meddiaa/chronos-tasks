@@ -45,7 +45,7 @@ ${taskData.dailyPerformance}
 
 Provide actionable, specific insights about productivity patterns and recommendations.`;
 
-    console.log("Calling Groq API with model: llama3-70b-8192");
+    console.log("Calling Groq API with model: llama-3.3-70b-versatile");
 
     // 3. Call Groq API (OpenAI compatible format)
     const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -55,7 +55,7 @@ Provide actionable, specific insights about productivity patterns and recommenda
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: "llama3-70b-8192",
+        model: "llama-3.3-70b-versatile",
         messages: [
           {
             role: "system",
