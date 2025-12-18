@@ -4,6 +4,8 @@ export type DailyRating = 'GOOD' | 'NEUTRAL' | 'BAD';
 
 export type Priority = 'HIGH' | 'MEDIUM' | 'LOW';
 
+export type Recurrence = 'DAILY' | 'WEEKLY' | null;
+
 export interface Todo {
   id: string;
   text: string;
@@ -14,6 +16,7 @@ export interface Todo {
   createdAt: number; // Unix timestamp
   dateString: string; // YYYY-MM-DD format for easy grouping
   note?: string; // Individual task note
+  recurrence?: Recurrence; // Temporal Echoes: recurring tasks
 }
 
 export interface DayMetadata {

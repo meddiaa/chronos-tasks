@@ -132,8 +132,26 @@ export const getPriorityStats = (todos: Todo[]) => {
     });
 
     return [
-        { name: 'HIGH', total: stats.HIGH.total, completed: stats.HIGH.completed, fill: '#f43f5e' }, // Rose
-        { name: 'MED', total: stats.MEDIUM.total, completed: stats.MEDIUM.completed, fill: '#f59e0b' }, // Amber
-        { name: 'LOW', total: stats.LOW.total, completed: stats.LOW.completed, fill: '#94a3b8' }, // Slate
+        { 
+            name: 'HIGH', 
+            total: stats.HIGH.total, 
+            completed: stats.HIGH.completed,
+            completionRate: stats.HIGH.total === 0 ? 0 : Math.round((stats.HIGH.completed / stats.HIGH.total) * 100),
+            fill: '#f43f5e' 
+        },
+        { 
+            name: 'MED', 
+            total: stats.MEDIUM.total, 
+            completed: stats.MEDIUM.completed,
+            completionRate: stats.MEDIUM.total === 0 ? 0 : Math.round((stats.MEDIUM.completed / stats.MEDIUM.total) * 100),
+            fill: '#f59e0b' 
+        },
+        { 
+            name: 'LOW', 
+            total: stats.LOW.total, 
+            completed: stats.LOW.completed,
+            completionRate: stats.LOW.total === 0 ? 0 : Math.round((stats.LOW.completed / stats.LOW.total) * 100),
+            fill: '#94a3b8' 
+        }
     ];
 };

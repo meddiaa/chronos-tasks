@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Check, Trash2, X, Play, Circle, AlertCircle, AlertTriangle, Minus, FileText } from 'lucide-react';
+import { Check, Trash2, X, Play, Circle, AlertCircle, AlertTriangle, Minus, FileText, Zap } from 'lucide-react';
 import { Todo, TaskStatus, Priority } from '../types';
 
 interface TodoItemProps {
@@ -10,9 +10,10 @@ interface TodoItemProps {
   onDelete: (id: string) => void;
   onPriorityChange: (id: string, newPriority: Priority) => void;
   onOpenNote: (id: string) => void;
+  onFocus?: (todo: Todo) => void;
 }
 
-export const TodoItem: React.FC<TodoItemProps> = ({ todo, isPast, onStatusChange, onEdit, onDelete, onPriorityChange, onOpenNote }) => {
+export const TodoItem: React.FC<TodoItemProps> = ({ todo, isPast, onStatusChange, onEdit, onDelete, onPriorityChange, onOpenNote, onFocus }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(todo.text);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -182,6 +183,18 @@ export const TodoItem: React.FC<TodoItemProps> = ({ todo, isPast, onStatusChange
       {/* Action Buttons */}
       <div className="flex items-center justify-end w-full sm:w-auto mt-2 sm:mt-0 sm:pl-2 sm:border-l sm:border-gray-100 sm:ml-2 border-t border-gray-100 pt-1 sm:pt-0 sm:border-t-0 space-x-1">
         
+        {/* Focus Button - Focus Protocol */}
+        {!isPast && todo.status !== 'COMPLETED' && onFocus && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onFocus(todo); }}
+            className="p-2 text-cyan-500 hover:bg-cyan-50 transition-colors focus:outline-none w-full sm:w-auto flex justify-center"
+            aria-label="Start focus session"
+            title="Start 25-min focus session"
+          >
+            <Zap className="w-5 h-5" />
+          </button>
+        )}
+
         {/* Note Button */}
         <button
           onClick={(e) => { e.stopPropagation(); onOpenNote(todo.id); }}

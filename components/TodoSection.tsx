@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { TodoGroup, TaskStatus, DailyRating, Priority } from '../types';
+import { TodoGroup, TaskStatus, DailyRating, Priority, Todo } from '../types';
 import { TodoItem } from './TodoItem';
 import { Calendar, ChevronDown, ChevronRight, BarChart3, Smile, Meh, Frown, StickyNote } from 'lucide-react';
 
@@ -12,12 +12,12 @@ interface TodoSectionProps {
   onPriorityChange: (id: string, newPriority: Priority) => void;
   onUpdateNote: (date: string, note: string) => void;
   onOpenNote: (id: string) => void;
+  onFocus?: (todo: Todo) => void;
 }
 
 export const TodoSection: React.FC<TodoSectionProps> = ({ 
-    group, onStatusChange, onEdit, onDelete, onRate, onPriorityChange, onUpdateNote, onOpenNote 
+    group, onStatusChange, onEdit, onDelete, onRate, onPriorityChange, onUpdateNote, onOpenNote, onFocus 
 }) => {
-  // Today is expanded by default, history (past) is collapsed by default
   const [isExpanded, setIsExpanded] = useState(group.isToday);
   const [localNote, setLocalNote] = useState(group.note || '');
 
@@ -159,6 +159,7 @@ export const TodoSection: React.FC<TodoSectionProps> = ({
               onDelete={onDelete}
               onPriorityChange={onPriorityChange}
               onOpenNote={onOpenNote}
+              onFocus={onFocus}
             />
           ))}
         </div>

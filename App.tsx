@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Plus, LayoutDashboard, Cpu, FileSpreadsheet, BarChart2, Search, Calendar, AlertCircle, AlertTriangle, Minus, ChevronDown, User, LogOut, Users, Cloud, CloudOff } from 'lucide-react';
-import { Todo, TodoGroup, TaskStatus, DailyRating, DayMetadata, Priority } from './types';
+import { Plus, LayoutDashboard, Cpu, FileSpreadsheet, BarChart2, Search, Calendar, AlertCircle, AlertTriangle, Minus, ChevronDown, User, LogOut, Users, Cloud, CloudOff, RotateCcw } from 'lucide-react';
+import { Todo, TodoGroup, TaskStatus, DailyRating, DayMetadata, Priority, Recurrence } from './types';
 import { getTodayDateString, formatDateLabel, isDatePast } from './utils/dateUtils';
 import { exportToCSV } from './utils/csvUtils';
+import { archiveUtils } from './utils/archiveUtils';
 import { TodoSection } from './components/TodoSection';
 import { StatsDashboard } from './components/StatsDashboard';
 import { TaskNoteModal } from './components/TaskNoteModal';
+import { FocusModal } from './components/FocusModal';
 import { storage } from './utils/storage';
 
 const App: React.FC = () => {
@@ -21,6 +23,7 @@ const App: React.FC = () => {
   // Input States
   const [inputValue, setInputValue] = useState('');
   const [inputPriority, setInputPriority] = useState<Priority>('LOW');
+  const [inputRecurrence, setInputRecurrence] = useState<Recurrence>(null);
   const [showPriorityMenu, setShowPriorityMenu] = useState(false);
   const [selectedDate, setSelectedDate] = useState(getTodayDateString());
   const [searchQuery, setSearchQuery] = useState('');
@@ -31,6 +34,9 @@ const App: React.FC = () => {
 
   // Note Modal State
   const [activeNoteTaskId, setActiveNoteTaskId] = useState<string | null>(null);
+  
+  // Focus Modal State
+  const [activeFocusTask, setActiveFocusTask] = useState<Todo | null>(null);
 
   // --- Auth & Initial Load ---
 
@@ -50,6 +56,13 @@ const App: React.FC = () => {
       setIsCloud(storage.isCloudActive());
       setIsLoaded(true);
   }, []);
+
+  // Helper function for weekly recurring task generation
+  const shouldGenerateWeekly = (originalDate: string, today: string): boolean => {
+    const original = new Date(originalDate);
+    const todayDate = new Date(today);
+    return original.getDay() === todayDate.getDay();
+  };
 
   const handleCreateUser = (e: React.FormEvent) => {
       e.preventDefault();
@@ -93,8 +106,30 @@ const App: React.FC = () => {
            ...t,
            status: t.status || (t.isCompleted ? 'COMPLETED' : 'PENDING'),
            priority: t.priority || 'LOW',
-           note: t.note || ''
+           note: t.note || '',
+           recurrence: t.recurrence || null
       }));
+
+      // Temporal Echoes: Generate recurring tasks for today
+      const today = getTodayDateString();
+      const recurringTodos = migratedTodos.filter(t => t.recurrence);
+      const todayTodos = migratedTodos.filter(t => t.dateString === today);
+
+      recurringTodos.forEach(task => {
+        const shouldGenerate = task.recurrence === 'DAILY' || 
+          (task.recurrence === 'WEEKLY' && shouldGenerateWeekly(task.dateString, today));
+        
+        if (shouldGenerate && !todayTodos.some(t => t.text === task.text && t.dateString === today)) {
+          const newTask: Todo = {
+            ...task,
+            id: crypto.randomUUID(),
+            dateString: today,
+            status: 'PENDING',
+            createdAt: Date.now()
+          };
+          migratedTodos.unshift(newTask);
+        }
+      });
 
       setTodos(migratedTodos);
       setDailyMetadata(data.metadata);
@@ -149,6 +184,7 @@ const App: React.FC = () => {
       text: inputValue.trim(),
       status: 'PENDING',
       priority: inputPriority,
+      recurrence: inputRecurrence,
       createdAt: Date.now(),
       dateString: selectedDate || getTodayDateString(),
       note: ''
@@ -184,6 +220,19 @@ const App: React.FC = () => {
     setTodos(prev => prev.map(t => 
         t.id === id ? { ...t, note } : t
     ));
+  };
+
+  const handleFocusStart = (todo: Todo) => {
+    setActiveFocusTask(todo);
+    // Automatically set task to IN_PROGRESS
+    handleStatusChange(todo.id, 'IN_PROGRESS');
+  };
+
+  const handleFocusComplete = () => {
+    if (activeFocusTask) {
+      handleStatusChange(activeFocusTask.id, 'COMPLETED');
+    }
+    setActiveFocusTask(null);
   };
   
   const handleRateDay = (date: string, rating: DailyRating) => {
@@ -335,7 +384,15 @@ const App: React.FC = () => {
       
       {/* Stats Overlay */}
       {showStats && (
-        <StatsDashboard todos={todos} dailyMetadata={dailyMetadata} onClose={() => setShowStats(false)} />
+        <StatsDashboard 
+          todos={todos} 
+          dailyMetadata={dailyMetadata} 
+          onClose={() => setShowStats(false)}
+          currentUser={currentUser || undefined}
+          onArchive={(count) => {
+            setTodos(prev => archiveUtils.removeOldTasks(prev, 30));
+          }}
+        />
       )}
 
       {/* Task Note Modal */}
@@ -497,6 +554,25 @@ const App: React.FC = () => {
                         </>
                     )}
                 </div>
+
+                {/* Recurrence Button - Temporal Echoes */}
+                <button
+                    type="button"
+                    onClick={() => {
+                      if (inputRecurrence === null) setInputRecurrence('DAILY');
+                      else if (inputRecurrence === 'DAILY') setInputRecurrence('WEEKLY');
+                      else setInputRecurrence(null);
+                    }}
+                    className={`w-[70px] h-full flex items-center justify-center transition-colors ${
+                      inputRecurrence ? 'bg-purple-100 text-purple-600 border-l border-purple-200' : 'hover:bg-slate-50 border-l border-gray-200'
+                    }`}
+                    title={`Recurrence: ${inputRecurrence || 'None'}`}
+                >
+                    <RotateCcw className="w-4 h-4" />
+                    <span className="text-[10px] font-bold ml-1 text-current">
+                      {inputRecurrence === 'DAILY' ? 'D' : inputRecurrence === 'WEEKLY' ? 'W' : '-'}
+                    </span>
+                </button>
             </div>
 
             {/* Text Input - Expanded */}
@@ -547,6 +623,7 @@ const App: React.FC = () => {
                 onPriorityChange={handlePriorityChange}
                 onUpdateNote={handleUpdateNote}
                 onOpenNote={setActiveNoteTaskId}
+                onFocus={handleFocusStart}
               />
             ))
           ) : (
@@ -566,6 +643,15 @@ const App: React.FC = () => {
 
       </main>
       
+      {/* Focus Modal - Focus Protocol */}
+      {activeFocusTask && (
+        <FocusModal
+          taskText={activeFocusTask.text}
+          onClose={() => setActiveFocusTask(null)}
+          onMarkComplete={handleFocusComplete}
+        />
+      )}
+
       {/* Footer */}
       <footer className="py-6 text-center text-gray-400 text-xs tracking-widest uppercase border-t border-gray-300 bg-gray-100">
         <p>Chronos System v2.3 &copy; {new Date().getFullYear()} // Operational</p>
