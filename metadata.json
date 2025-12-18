@@ -1,0 +1,5 @@
+{
+  "name": "Chronos Tasks",
+  "description": "A date-aware to-do list application that tracks task history, visually highlighting past accomplishments and overdue items.",
+  "requestFramePermissions": []
+}
