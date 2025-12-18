@@ -27,9 +27,19 @@ export const TodoItem: React.FC<TodoItemProps> = ({ todo, isPast, onStatusChange
   const handleCycleStatus = (e: React.MouseEvent) => {
     e.stopPropagation(); 
     
-    if (todo.status === 'PENDING') onStatusChange(todo.id, 'IN_PROGRESS');
-    else if (todo.status === 'IN_PROGRESS') onStatusChange(todo.id, 'COMPLETED');
-    else onStatusChange(todo.id, 'PENDING');
+    if (isPast) {
+      // For past dates: toggle between COMPLETED (done) and PENDING (not done)
+      if (todo.status === 'COMPLETED') {
+        onStatusChange(todo.id, 'PENDING');
+      } else {
+        onStatusChange(todo.id, 'COMPLETED');
+      }
+    } else {
+      // For today/future: cycle through PENDING -> IN_PROGRESS -> COMPLETED -> PENDING
+      if (todo.status === 'PENDING') onStatusChange(todo.id, 'IN_PROGRESS');
+      else if (todo.status === 'IN_PROGRESS') onStatusChange(todo.id, 'COMPLETED');
+      else onStatusChange(todo.id, 'PENDING');
+    }
   };
 
   const handleCyclePriority = (e: React.MouseEvent) => {
