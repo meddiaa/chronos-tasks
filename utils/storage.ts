@@ -78,10 +78,17 @@ export const storage = {
     localStorage.setItem(`chronos_${cleanName}_todos`, JSON.stringify(data.todos));
     localStorage.setItem(`chronos_${cleanName}_daily_metadata`, JSON.stringify(data.metadata));
 
-    // If Firebase is active, save there too
+    // If Firebase is active, save there too and wait for completion
     if (db) {
-      set(ref(db, `users/${cleanName}/todos`), data.todos);
-      set(ref(db, `users/${cleanName}/metadata`), data.metadata);
+      try {
+        await Promise.all([
+          set(ref(db, `users/${cleanName}/todos`), data.todos),
+          set(ref(db, `users/${cleanName}/metadata`), data.metadata)
+        ]);
+        console.log("Chronos System: Data synced to cloud successfully");
+      } catch (e) {
+        console.warn("Chronos System: Cloud sync failed, data saved locally", e);
+      }
     }
   }
 };

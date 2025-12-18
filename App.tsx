@@ -71,7 +71,11 @@ const App: React.FC = () => {
       // Data will be loaded by the useEffect below
   };
 
-  const logoutUser = () => {
+  const logoutUser = async () => {
+      // Save current data to ensure no loss on logout
+      if (currentUser) {
+          await storage.saveUserData(currentUser, { todos, metadata: dailyMetadata });
+      }
       setCurrentUser(null);
       localStorage.removeItem('chronos_active_user');
       setTodos([]);
@@ -361,7 +365,7 @@ const App: React.FC = () => {
 
              {/* Logout Button */}
              <button 
-                onClick={logoutUser}
+                onClick={() => logoutUser()}
                 className="flex items-center justify-center px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white transition-colors rounded-none border border-slate-600 ml-2"
                 title="Switch User"
              >
