@@ -155,3 +155,31 @@ export const getPriorityStats = (todos: Todo[]) => {
         }
     ];
 };
+
+// 7. Calculate Streak
+export const calculateStreak = (metadata: Record<string, DayMetadata>) => {
+    const today = new Date();
+    let streak = 0;
+    let currentDate = new Date(today);
+    
+    // Check up to 365 days back
+    for (let i = 0; i < 365; i++) {
+        const dateStr = currentDate.toISOString().split('T')[0];
+        
+        // We consider a day "active" if it has a rating
+        if (metadata[dateStr] && metadata[dateStr].rating) {
+            streak++;
+        } else if (i === 0) {
+            // If today is not rated yet, don't break the streak, just don't count it yet
+            // (Unless we find a gap yesterday)
+        } else {
+            // Break chain
+            break;
+        }
+        
+        // Go back one day
+        currentDate.setDate(currentDate.getDate() - 1);
+    }
+    
+    return streak;
+};

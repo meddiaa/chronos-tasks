@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Plus, LayoutDashboard, Cpu, FileSpreadsheet, BarChart2, Search, Calendar, AlertCircle, AlertTriangle, Minus, ChevronDown, User, LogOut, Users, Cloud, CloudOff, RotateCcw } from 'lucide-react';
+import { Plus, LayoutDashboard, Cpu, FileSpreadsheet, BarChart2, Search, Calendar, AlertCircle, AlertTriangle, Minus, ChevronDown, User, LogOut, Users, Cloud, CloudOff, RotateCcw, Flame } from 'lucide-react';
 import { Todo, TodoGroup, TaskStatus, DailyRating, DayMetadata, Priority, Recurrence } from './types';
 import { getTodayDateString, formatDateLabel, isDatePast } from './utils/dateUtils';
 import { exportToCSV } from './utils/csvUtils';
 import { archiveUtils } from './utils/archiveUtils';
+import { calculateStreak } from './utils/statsUtils'; // IMPORTED
 import { TodoSection } from './components/TodoSection';
 import { StatsDashboard } from './components/StatsDashboard';
 import { TaskNoteModal } from './components/TaskNoteModal';
@@ -305,6 +306,8 @@ const App: React.FC = () => {
     activeNoteTaskId ? todos.find(t => t.id === activeNoteTaskId) || null : null
   , [todos, activeNoteTaskId]);
 
+  // Calculate Streak (Momentum)
+  const streak = useMemo(() => calculateStreak(dailyMetadata), [dailyMetadata]);
 
   // --- RENDER: LOGIN SCREEN ---
   if (!currentUser) {
@@ -417,9 +420,19 @@ const App: React.FC = () => {
             </div>
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold tracking-widest leading-none font-['Rajdhani']">CHRONOS<span className="text-[#F87060]">_</span>TASKS</h1>
-              <div className="flex items-center justify-center md:justify-start text-xs text-blue-200/60 uppercase tracking-[0.2em] space-x-2">
-                <Cpu className="w-3 h-3" />
-                <span>USER: <span className="text-white font-bold">{currentUser}</span></span>
+              <div className="flex flex-col sm:flex-row sm:items-center text-xs text-blue-200/60 uppercase tracking-[0.2em] sm:space-x-4">
+                <div className="flex items-center space-x-2">
+                    <Cpu className="w-3 h-3" />
+                    <span>USER: <span className="text-white font-bold">{currentUser}</span></span>
+                </div>
+                
+                {/* Momentum Visualizer (Streak) */}
+                {streak > 0 && (
+                  <div className="flex items-center space-x-1 text-amber-400 animate-pulse mt-1 sm:mt-0">
+                      <Flame className="w-3 h-3" fill="currentColor" />
+                      <span className="font-bold">UPTIME: {streak} DAYS</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>

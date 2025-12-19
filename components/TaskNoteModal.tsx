@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, FileText } from 'lucide-react';
+import { X, Save, FileText, Sparkles, Loader } from 'lucide-react';
 import { Todo } from '../types';
 
 interface TaskNoteModalProps {
@@ -11,6 +11,7 @@ interface TaskNoteModalProps {
 
 export const TaskNoteModal: React.FC<TaskNoteModalProps> = ({ todo, isOpen, onClose, onSave }) => {
   const [note, setNote] = useState('');
+  const [isDecomposing, setIsDecomposing] = useState(false);
 
   useEffect(() => {
     if (todo) {
@@ -23,6 +24,32 @@ export const TaskNoteModal: React.FC<TaskNoteModalProps> = ({ todo, isOpen, onCl
   const handleSave = () => {
     onSave(todo.id, note);
     onClose();
+  };
+
+  const handleDecompose = async () => {
+    setIsDecomposing(true);
+    try {
+      const res = await fetch('/api/decompose', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ task: todo.text })
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        if (data.result) {
+          // Append to existing note or replace if empty
+          const separator = note.trim() ? '\n\n--- AUTO-DECOMPOSED PLAN ---\n' : '';
+          setNote(prev => prev + separator + data.result);
+        }
+      } else {
+        console.error("API Error");
+      }
+    } catch (e) {
+      console.error("Decomposition failed", e);
+    } finally {
+      setIsDecomposing(false);
+    }
   };
 
   return (
@@ -50,9 +77,28 @@ export const TaskNoteModal: React.FC<TaskNoteModalProps> = ({ todo, isOpen, onCl
 
         {/* Note Editor */}
         <div className="p-6">
-          <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
-             Additional Notes / Sub-tasks
-          </label>
+          <div className="flex justify-between items-center mb-2">
+             <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider">
+                Additional Notes / Sub-tasks
+             </label>
+             <button 
+                onClick={handleDecompose}
+                disabled={isDecomposing}
+                className="text-[10px] uppercase font-bold text-violet-600 hover:text-violet-800 flex items-center bg-violet-50 px-2 py-1 rounded transition-colors disabled:opacity-50"
+             >
+                {isDecomposing ? (
+                    <>
+                        <Loader className="w-3 h-3 mr-1 animate-spin" />
+                        Processing...
+                    </>
+                ) : (
+                    <>
+                        <Sparkles className="w-3 h-3 mr-1" />
+                        Neural Decomposition
+                    </>
+                )}
+             </button>
+          </div>
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
