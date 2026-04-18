@@ -93,6 +93,7 @@ const App: React.FC = () => {
       setCurrentUser(null);
       localStorage.removeItem('chronos_active_user');
       setTodos([]);
+      setDailyMetadata({});
   };
 
   // --- Data Loading (Per User) ---
@@ -115,20 +116,26 @@ const App: React.FC = () => {
       const today = getTodayDateString();
       const recurringTodos = migratedTodos.filter(t => t.recurrence);
       const todayTodos = migratedTodos.filter(t => t.dateString === today);
+      const generatedSourceIds = new Set(
+        todayTodos.map(t => t.originTaskId || t.id)
+      );
 
       recurringTodos.forEach(task => {
         const shouldGenerate = task.recurrence === 'DAILY' || 
           (task.recurrence === 'WEEKLY' && shouldGenerateWeekly(task.dateString, today));
+        const sourceId = task.originTaskId || task.id;
         
-        if (shouldGenerate && !todayTodos.some(t => t.text === task.text && t.dateString === today)) {
+        if (shouldGenerate && !generatedSourceIds.has(sourceId)) {
           const newTask: Todo = {
             ...task,
             id: crypto.randomUUID(),
+            originTaskId: sourceId,
             dateString: today,
             status: 'PENDING',
             createdAt: Date.now()
           };
           migratedTodos.unshift(newTask);
+          generatedSourceIds.add(sourceId);
         }
       });
 
@@ -141,6 +148,21 @@ const App: React.FC = () => {
 
   // --- Data Saving (Per User) with Debounce ---
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const latestDataRef = useRef({ todos, dailyMetadata });
+  
+  useEffect(() => {
+    latestDataRef.current = { todos, dailyMetadata };
+  }, [todos, dailyMetadata]);
+
+  const flushCurrentUserData = (username: string) => {
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    const currentData = latestDataRef.current;
+    // Intentionally do not await: localStorage backup happens synchronously.
+    void storage.saveUserData(username, {
+      todos: currentData.todos,
+      metadata: currentData.dailyMetadata
+    });
+  };
   
   useEffect(() => {
     if (currentUser && isLoaded) {
@@ -158,20 +180,94 @@ const App: React.FC = () => {
     };
   }, [todos, dailyMetadata, currentUser, isLoaded]);
   
-  // Save on page unload to ensure no data loss on refresh
+  // Save on lifecycle transitions to reduce crash/close data loss risk.
   useEffect(() => {
-    const handleBeforeUnload = async (e: BeforeUnloadEvent) => {
-      if (currentUser && (todos.length > 0 || Object.keys(dailyMetadata).length > 0)) {
-        // Immediately save without debounce
-        if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-        await storage.saveUserData(currentUser, { todos, metadata: dailyMetadata });
+    if (!currentUser) return;
+
+    const persistNow = () => {
+      flushCurrentUserData(currentUser);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        persistNow();
       }
     };
-    
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [currentUser, todos, dailyMetadata]);
 
+    const handlePageHide = () => {
+      persistNow();
+    };
+
+    const handleBeforeUnload = () => {
+      persistNow();
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pagehide', handlePageHide);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pagehide', handlePageHide);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [currentUser]);
+
+  // --- Inactivity Logout & Auto-save ---
+  useEffect(() => {
+    if (!currentUser || !isLoaded) return;
+
+    // 1. Auto-save every 1 minute
+    const autoSaveInterval = setInterval(() => {
+      // Periodic background save using mutable ref to avoid stale closures
+      const currentData = latestDataRef.current;
+      storage.saveUserData(currentUser, { 
+        todos: currentData.todos, 
+        metadata: currentData.dailyMetadata 
+      });
+    }, 60 * 1000);
+
+    // 2. Inactivity auto-logout (15 minutes)
+    let inactivityTimer: NodeJS.Timeout;
+
+    const performLogout = async () => {
+      // Save current data one last time before logout
+      const currentData = latestDataRef.current;
+      await storage.saveUserData(currentUser, { 
+          todos: currentData.todos, 
+          metadata: currentData.dailyMetadata 
+      });
+      setCurrentUser(null);
+      localStorage.removeItem('chronos_active_user');
+      setTodos([]);
+      setDailyMetadata({});
+    };
+
+    const resetInactivityTimer = () => {
+      if (inactivityTimer) clearTimeout(inactivityTimer);
+      inactivityTimer = setTimeout(() => {
+        performLogout();
+      }, 15 * 60 * 1000); // 15 minutes
+    };
+
+    resetInactivityTimer();
+
+    // Listen for activity to reset the timer
+    const activityEvents = ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll'];
+    const handleActivity = () => resetInactivityTimer();
+
+    activityEvents.forEach(event => {
+      window.addEventListener(event, handleActivity);
+    });
+
+    return () => {
+      clearInterval(autoSaveInterval);
+      if (inactivityTimer) clearTimeout(inactivityTimer);
+      activityEvents.forEach(event => {
+        window.removeEventListener(event, handleActivity);
+      });
+    };
+  }, [currentUser, isLoaded]);
 
   // --- Event Handlers ---
 

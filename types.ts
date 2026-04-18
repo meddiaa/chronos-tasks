@@ -17,6 +17,7 @@ export interface Todo {
   dateString: string; // YYYY-MM-DD format for easy grouping
   note?: string; // Individual task note
   recurrence?: Recurrence; // Temporal Echoes: recurring tasks
+  originTaskId?: string; // Source task id for generated recurring instances
 }
 
 export interface DayMetadata {

@@ -1,5 +1,11 @@
 import { Todo } from '../types';
 
+const toLocalDateString = (date: Date): string => {
+  const offset = date.getTimezoneOffset();
+  const localDate = new Date(date.getTime() - offset * 60 * 1000);
+  return localDate.toISOString().split('T')[0];
+};
+
 /**
  * Archive System: Manage old tasks to improve performance
  */
@@ -11,7 +17,7 @@ export const archiveUtils = {
   getOldTasks: (todos: Todo[], daysOld: number = 30): Todo[] => {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysOld);
-    const cutoffString = cutoffDate.toISOString().split('T')[0];
+    const cutoffString = toLocalDateString(cutoffDate);
 
     return todos.filter(todo => todo.dateString < cutoffString);
   },
@@ -22,7 +28,7 @@ export const archiveUtils = {
   removeOldTasks: (todos: Todo[], daysOld: number = 30): Todo[] => {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysOld);
-    const cutoffString = cutoffDate.toISOString().split('T')[0];
+    const cutoffString = toLocalDateString(cutoffDate);
 
     return todos.filter(todo => todo.dateString >= cutoffString);
   },
@@ -37,7 +43,7 @@ export const archiveUtils = {
 
     const link = document.createElement('a');
     link.href = url;
-    link.download = `chronos-archive-${username}-${new Date().toISOString().split('T')[0]}.json`;
+    link.download = `chronos-archive-${username}-${toLocalDateString(new Date())}.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

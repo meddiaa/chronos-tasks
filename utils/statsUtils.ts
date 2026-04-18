@@ -1,6 +1,12 @@
 import { Todo, DailyRating, DayMetadata } from '../types';
 import { isDatePast } from './dateUtils';
 
+const toLocalDateString = (date: Date): string => {
+  const offset = date.getTimezoneOffset();
+  const localDate = new Date(date.getTime() - offset * 60 * 1000);
+  return localDate.toISOString().split('T')[0];
+};
+
 // 1. Pie Chart Data: Status Distribution
 export const getStatusDistribution = (todos: Todo[]) => {
   let completed = 0;
@@ -28,23 +34,26 @@ export const getStatusDistribution = (todos: Todo[]) => {
 export const getLast7DaysPerformance = (todos: Todo[]) => {
   const data = [];
   const today = new Date();
+  const todayStr = toLocalDateString(today);
   
   for (let i = 6; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(today.getDate() - i);
-    const dateStr = d.toISOString().split('T')[0];
+    const dateStr = toLocalDateString(d);
     const dayLabel = d.toLocaleDateString('en-US', { weekday: 'short' });
 
     const dayTodos = todos.filter(t => t.dateString === dateStr);
     const completed = dayTodos.filter(t => t.status === 'COMPLETED').length;
     const total = dayTodos.length;
     const notCompleted = total - completed;
+    const isPastDay = dateStr < todayStr;
 
     data.push({
       date: dayLabel,
       fullDate: dateStr,
       completed,
-      missed: notCompleted, // For stacking
+      // Count misses only for dates that are already in the past.
+      missed: isPastDay ? notCompleted : 0,
       total
     });
   }
@@ -164,7 +173,7 @@ export const calculateStreak = (metadata: Record<string, DayMetadata>) => {
     
     // Check up to 365 days back
     for (let i = 0; i < 365; i++) {
-        const dateStr = currentDate.toISOString().split('T')[0];
+      const dateStr = toLocalDateString(currentDate);
         
         // We consider a day "active" if it has a rating
         if (metadata[dateStr] && metadata[dateStr].rating) {
