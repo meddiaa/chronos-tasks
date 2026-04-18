@@ -30,6 +30,7 @@ const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   
   const [isLoaded, setIsLoaded] = useState(false);
+  const [isUserDataHydrated, setIsUserDataHydrated] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [isCloud, setIsCloud] = useState(false);
 
@@ -47,12 +48,9 @@ const App: React.FC = () => {
       if (storedUsers) {
           setAvailableUsers(JSON.parse(storedUsers));
       }
-      
-      // 2. Check for active session
-      const sessionUser = localStorage.getItem('chronos_active_user');
-      if (sessionUser) {
-          setCurrentUser(sessionUser);
-      }
+
+      // Always start on access screen (disable persistent auto-login).
+      localStorage.removeItem('chronos_active_user');
       
       setIsCloud(storage.isCloudActive());
       setIsLoaded(true);
@@ -80,8 +78,8 @@ const App: React.FC = () => {
   };
 
   const loginUser = (name: string) => {
+      setIsUserDataHydrated(false);
       setCurrentUser(name);
-      localStorage.setItem('chronos_active_user', name);
       // Data will be loaded by the useEffect below
   };
 
@@ -94,12 +92,18 @@ const App: React.FC = () => {
       localStorage.removeItem('chronos_active_user');
       setTodos([]);
       setDailyMetadata({});
+        setIsUserDataHydrated(false);
   };
 
   // --- Data Loading (Per User) ---
   useEffect(() => {
     const loadData = async () => {
-      if (!currentUser || !isLoaded) return;
+      if (!currentUser || !isLoaded) {
+        setIsUserDataHydrated(false);
+        return;
+      }
+
+      setIsUserDataHydrated(false);
       
       const data = await storage.loadUserData(currentUser);
       
@@ -141,6 +145,7 @@ const App: React.FC = () => {
 
       setTodos(migratedTodos);
       setDailyMetadata(data.metadata);
+      setIsUserDataHydrated(true);
     };
 
     loadData();
@@ -165,7 +170,7 @@ const App: React.FC = () => {
   };
   
   useEffect(() => {
-    if (currentUser && isLoaded) {
+    if (currentUser && isLoaded && isUserDataHydrated) {
       // Clear previous timeout
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
       
@@ -178,11 +183,11 @@ const App: React.FC = () => {
     return () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     };
-  }, [todos, dailyMetadata, currentUser, isLoaded]);
+  }, [todos, dailyMetadata, currentUser, isLoaded, isUserDataHydrated]);
   
   // Save on lifecycle transitions to reduce crash/close data loss risk.
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser || !isUserDataHydrated) return;
 
     const persistNow = () => {
       flushCurrentUserData(currentUser);
@@ -211,11 +216,11 @@ const App: React.FC = () => {
       window.removeEventListener('pagehide', handlePageHide);
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [currentUser]);
+  }, [currentUser, isUserDataHydrated]);
 
   // --- Inactivity Logout & Auto-save ---
   useEffect(() => {
-    if (!currentUser || !isLoaded) return;
+    if (!currentUser || !isLoaded || !isUserDataHydrated) return;
 
     // 1. Auto-save every 1 minute
     const autoSaveInterval = setInterval(() => {
@@ -241,6 +246,7 @@ const App: React.FC = () => {
       localStorage.removeItem('chronos_active_user');
       setTodos([]);
       setDailyMetadata({});
+      setIsUserDataHydrated(false);
     };
 
     const resetInactivityTimer = () => {
@@ -267,7 +273,7 @@ const App: React.FC = () => {
         window.removeEventListener(event, handleActivity);
       });
     };
-  }, [currentUser, isLoaded]);
+  }, [currentUser, isLoaded, isUserDataHydrated]);
 
   // --- Event Handlers ---
 
